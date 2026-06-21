@@ -14,6 +14,11 @@ function HandTracker() {
   const gameOverRef = useRef(false);
   const sliceSoundRef = useRef(null);
 
+  // Advanced feature animation buffers
+  const splattersRef = useRef([]);
+  const floatingTextsRef = useRef([]);
+  const flashActiveRef = useRef(0);
+
   useEffect(() => {
     // Audio asset initialization
     sliceSoundRef.current = new Audio("/Slash.mp3");
@@ -26,8 +31,24 @@ function HandTracker() {
     // ==========================================
     const drawWholeFruit = (ctx, r, type) => {
       ctx.save();
-      if (type === 'apple') {
-        // Smooth wide-bottom apple profile matching reference
+      if (type === 'bomb') {
+        const bg = ctx.createRadialGradient(-r * 0.2, -r * 0.2, r * 0.1, 0, 0, r);
+        bg.addColorStop(0, '#6b7280'); bg.addColorStop(0.5, '#374151'); bg.addColorStop(1, '#111827');
+        ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#9ca3af';
+        for (let i = 0; i < 6; i++) {
+          const ang = i * (Math.PI / 3);
+          ctx.beginPath(); ctx.arc(Math.cos(ang) * r * 0.6, Math.sin(ang) * r * 0.6, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.strokeStyle = '#d97706'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, -r + 2); ctx.quadraticCurveTo(r * 0.4, -r * 1.3, r * 0.2, -r * 1.6); ctx.stroke();
+
+        ctx.fillStyle = Math.random() > 0.5 ? '#fbbf24' : '#ef4444';
+        ctx.beginPath(); ctx.arc(r * 0.2, -r * 1.6, 5 + Math.random() * 5, 0, Math.PI * 2); ctx.fill();
+      }
+      else if (type === 'apple') {
         ctx.beginPath();
         ctx.moveTo(0, -r * 0.45);
         ctx.bezierCurveTo(r * 0.5, -r * 0.95, r * 1.1, -r * 0.5, r * 1.0, r * 0.1);
@@ -43,21 +64,18 @@ function HandTracker() {
         g.addColorStop(1, '#7f1d1d');
         ctx.fillStyle = g; ctx.fill();
 
-        // Curved stem
         ctx.strokeStyle = '#451a03'; ctx.lineWidth = r * 0.06; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(0, -r * 0.4); ctx.quadraticCurveTo(-r * 0.1, -r * 0.75, -r * 0.2, -r * 0.9); ctx.stroke();
 
-        // Left pointing leaf
         ctx.save(); ctx.translate(-r * 0.1, -r * 0.65); ctx.rotate(-0.4);
         ctx.fillStyle = '#16a34a'; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.3, r * 0.12, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // Stylized gloss reflection capsule
         ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.3, r * 0.22, r * 0.12, -0.6, 0, Math.PI * 2); ctx.fill();
       } 
       else if (type === 'banana') {
-        // Smooth, realistic thickness crescent profile
+        ctx.rotate(Math.PI / 2);
         ctx.beginPath(); 
         ctx.moveTo(-r * 1.1, -r * 0.15);
         ctx.quadraticCurveTo(0, -r * 0.85, r * 1.1, -r * 0.2);
@@ -65,20 +83,17 @@ function HandTracker() {
         ctx.closePath();
         
         const g = ctx.createLinearGradient(-r, r, r, -r);
-        g.addColorStop(0, '#fef08a'); g.addColorStop(0.6, '#facc15'); g.addColorStop(1, '#ca8a04');
+        g.addColorStop(0, '#fef08a'); g.addColorStop(0.6, '#facc15'); g.addColorStop(1, '#f57f17');
         ctx.fillStyle = g; ctx.fill();
 
-        // Longitudinal shadow line
         ctx.strokeStyle = 'rgba(202, 138, 4, 0.4)'; ctx.lineWidth = 2; ctx.beginPath();
         ctx.moveTo(-r * 0.9, -r * 0.12); ctx.quadraticCurveTo(0, -r * 0.3, r * 0.95, -r * 0.18); ctx.stroke();
 
-        // Dark ends
         ctx.fillStyle = '#451a03';
         ctx.beginPath(); ctx.ellipse(r * 1.1, -r * 0.2, r * 0.05, r * 0.04, 0.4, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(-r * 1.1, -r * 0.15, r * 0.05, r * 0.04, -0.2, 0, Math.PI * 2); ctx.fill();
       } 
       else if (type === 'watermelon') {
-        // Circular cut disc matching reference vector
         ctx.fillStyle = '#15803d'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#f0fdf4'; ctx.beginPath(); ctx.arc(0, 0, r * 0.88, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.fill();
@@ -110,7 +125,6 @@ function HandTracker() {
         ];
         grapeMap.forEach(p => {
           const gg = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, r * 0.34);
-          // FIXED: Removed light lavender completely to avoid camera-exposure white hotspots
           gg.addColorStop(0, '#a855f7'); 
           gg.addColorStop(1, '#4c1d95');
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.34, 0, Math.PI * 2); ctx.fill();
@@ -138,7 +152,6 @@ function HandTracker() {
 
         ctx.save(); ctx.clip();
         ctx.strokeStyle = '#78350f'; ctx.lineWidth = 1.2;
-        const spacing = r * 0.26;
         for (let j = -5; j <= 5; j++) {
           for (let i = -4; i <= 4; i++) {
             const px = i * r * 0.32 + (Math.abs(j) % 2 === 0 ? 0 : r * 0.16); const py = j * r * 0.22;
@@ -165,7 +178,17 @@ function HandTracker() {
     const drawFruitHalf = (ctx, r, type, side) => {
       ctx.save();
 
-      // FIXED: Sliced individual grape berries are deep solid jewel purple (No white inside at all)
+      if (type.startsWith('chunk_')) {
+        const parentFruit = type.split('_')[1];
+        const chunkColors = { apple: '#ef4444', banana: '#facc15', grapes: '#a855f7', cherry: '#ef4444', pineapple: '#eab308', orange: '#f97316', watermelon: '#f87171' };
+        ctx.fillStyle = chunkColors[parentFruit] || '#a855f7';
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.arc(0, 0, r * 0.6, -0.5, 0.5);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+        return;
+      }
+
       if (type === 'single_grape') {
         const gg = ctx.createRadialGradient(0, 0, 1, 0, 0, r);
         gg.addColorStop(0, '#a855f7'); 
@@ -175,7 +198,6 @@ function HandTracker() {
         return;
       }
 
-      // Hemisphere clip coordinates line processing
       ctx.beginPath();
       if (side === 'left') ctx.rect(-r * 2, -r * 2, r * 2, r * 4);
       else ctx.rect(0, -r * 2, r * 2, r * 4);
@@ -207,7 +229,6 @@ function HandTracker() {
         ctx.fillStyle = '#fffdfa'; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.75, r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
       }
 
-      // FIXED: Replaced generic white border highlight ring with custom color-matching tones
       const matchingGlows = { apple: 'rgba(239,68,68,0.4)', banana: 'rgba(254,240,138,0.4)', orange: 'rgba(249,115,22,0.4)', pineapple: 'rgba(234,179,8,0.4)', watermelon: 'rgba(248,113,113,0.4)' };
       ctx.strokeStyle = matchingGlows[type] || 'rgba(168,85,247,0.3)';
       ctx.lineWidth = 2;
@@ -248,8 +269,10 @@ function HandTracker() {
       const spawnInterval = setInterval(() => {
         if (gameOverRef.current) return;
 
-        const chosenType = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
-        const baseRMap = { apple: 36, banana: 40, grapes: 36, cherry: 24, pineapple: 45, orange: 34, watermelon: 42 };
+        const isBomb = Math.random() < 0.05;
+        const chosenType = isBomb ? 'bomb' : fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+        
+        const baseRMap = { apple: 36, banana: 40, grapes: 36, cherry: 24, pineapple: 45, orange: 34, watermelon: 42, bomb: 32 };
         const baseR = baseRMap[chosenType] || 32;
 
         const pushFruit = (ox = 0, vxOffset = 0, oy = 0) => {
@@ -280,15 +303,28 @@ function HandTracker() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (results.image) ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
+        // Render juice splatters background
+        splattersRef.current.forEach((s) => {
+          s.y += 0.25; 
+          ctx.save();
+          ctx.globalAlpha = s.alpha;
+          ctx.fillStyle = s.color;
+          ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+          s.alpha -= 0.012;
+        });
+        splattersRef.current = splattersRef.current.filter(s => s.alpha > 0);
+
         let sliceAngle = 0;
-        if (results.multiHandLandmarks && !gameOverRef.current) {
+        
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0 && !gameOverRef.current) {
           results.multiHandLandmarks.forEach((landmarks) => {
             const indexFinger = landmarks[8];
             const x = indexFinger.x * canvas.width;
             const y = indexFinger.y * canvas.height;
 
             trailRef.current.push({ x, y });
-            if (trailRef.current.length > 10) trailRef.current.shift();
+            if (trailRef.current.length > 8) trailRef.current.shift();
 
             if (trailRef.current.length > 2) {
               const p1 = trailRef.current[trailRef.current.length - 3];
@@ -296,10 +332,12 @@ function HandTracker() {
             }
 
             ctx.save(); ctx.translate(x, y);
-            ctx.fillStyle = '#cfd8dc'; ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(22, 0); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#5d4037'; ctx.fillRect(-7, -4, 7, 8);
+            ctx.fillStyle = '#cfd8dc'; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(46, 0); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#5d4037'; ctx.fillRect(-15, -8, 15, 16);
             ctx.restore();
           });
+        } else {
+          trailRef.current = []; 
         }
 
         if (trailRef.current.length > 1) {
@@ -321,6 +359,9 @@ function HandTracker() {
           return;
         }
 
+        let frameCutsCount = 0;
+        let lastCutX = 320, lastCutY = 240;
+
         fruitsRef.current.forEach((fruit) => {
           fruit.velocityY += fruit.gravity;
           fruit.x += fruit.velocityX; fruit.y += fruit.velocityY;
@@ -328,35 +369,64 @@ function HandTracker() {
           trailRef.current.forEach((point) => {
             const dx = point.x - fruit.x; const dy = point.y - fruit.y;
             if (Math.sqrt(dx * dx + dy * dy) < fruit.radius && !fruit.sliced) {
-              fruit.sliced = true; scoreRef.current += 1;
+              fruit.sliced = true;
+              lastCutX = fruit.x; lastCutY = fruit.y;
 
-              const outwardX = Math.cos(sliceAngle + Math.PI / 2) * 2.5;
-              const outwardY = Math.sin(sliceAngle + Math.PI / 2) * 2.5;
+              if (fruit.type === 'bomb') {
+                scoreRef.current = Math.max(0, scoreRef.current - 5);
+                timeLeftRef.current = Math.max(0, timeLeftRef.current - 10);
+                flashActiveRef.current = 15; 
+                spawnParticles(fruit.x, fruit.y, '#374151', 22); 
 
-              if (fruit.type === 'grapes') {
-                for (let i = 0; i < 6; i++) {
-                  slicesRef.current.push({
-                    x: fruit.x + rand(-12, 12), y: fruit.y + rand(-12, 12),
-                    radius: fruit.radius * 0.3, type: 'single_grape', side: 'left',
-                    velocityX: fruit.velocityX + rand(-4, 4), velocityY: fruit.velocityY + rand(-5, 1),
-                    gravity: 0.35, rot: rand(0, Math.PI * 2), vRot: rand(-0.1, 0.1)
+                // Bomb text penalty addition
+                floatingTextsRef.current.push({
+                  x: fruit.x - 40,
+                  y: fruit.y - 15,
+                  text: "BOMB! -5 pts",
+                  color: "#ef4444",
+                  scale: 1.1,
+                  alpha: 1.0
+                });
+              } else {
+                scoreRef.current += 1;
+                frameCutsCount++;
+
+                const outwardX = Math.cos(sliceAngle + Math.PI / 2) * 2.5;
+                const outwardY = Math.sin(sliceAngle + Math.PI / 2) * 2.5;
+
+                const juiceColors = { apple: 'rgba(220,38,38,0.5)', banana: 'rgba(234,179,8,0.4)', grapes: 'rgba(147,51,234,0.5)', cherry: 'rgba(220,38,38,0.5)', pineapple: 'rgba(234,179,8,0.4)', orange: 'rgba(249,115,22,0.4)', watermelon: 'rgba(239,68,68,0.5)' };
+                for (let k = 0; k < 4; k++) {
+                  splattersRef.current.push({
+                    x: fruit.x + rand(-20, 20), y: fruit.y + rand(-20, 20),
+                    radius: rand(8, fruit.radius * 0.5), color: juiceColors[fruit.type], alpha: rand(0.6, 0.8)
                   });
                 }
-              } else {
-                slicesRef.current.push({
-                  x: fruit.x, y: fruit.y, radius: fruit.radius, type: fruit.type, side: 'left',
-                  velocityX: fruit.velocityX - outwardX, velocityY: fruit.velocityY - outwardY,
-                  gravity: 0.35, rot: sliceAngle, vRot: -0.06
-                });
 
-                slicesRef.current.push({
-                  x: fruit.x, y: fruit.y, radius: fruit.radius, type: fruit.type, side: 'right',
-                  velocityX: fruit.velocityX + outwardX, velocityY: fruit.velocityY + outwardY,
-                  gravity: 0.35, rot: sliceAngle, vRot: 0.06
-                });
+                if (fruit.type === 'grapes') {
+                  for (let i = 0; i < 6; i++) {
+                    slicesRef.current.push({
+                      x: fruit.x + rand(-12, 12), y: fruit.y + rand(-12, 12),
+                      radius: fruit.radius * 0.3, type: 'single_grape', side: 'left',
+                      velocityX: fruit.velocityX + rand(-4, 4), velocityY: fruit.velocityY + rand(-5, 1),
+                      gravity: 0.35, rot: rand(0, Math.PI * 2), vRot: rand(-0.1, 0.1)
+                    });
+                  }
+                } else {
+                  slicesRef.current.push({
+                    x: fruit.x, y: fruit.y, radius: fruit.radius, type: fruit.type, side: 'left',
+                    velocityX: fruit.velocityX - outwardX, velocityY: fruit.velocityY - outwardY,
+                    gravity: 0.35, rot: sliceAngle, vRot: -0.06
+                  });
+
+                  slicesRef.current.push({
+                    x: fruit.x, y: fruit.y, radius: fruit.radius, type: fruit.type, side: 'right',
+                    velocityX: fruit.velocityX + outwardX, velocityY: fruit.velocityY + outwardY,
+                    gravity: 0.35, rot: sliceAngle, vRot: 0.06
+                  });
+                }
               }
 
-              const colors = { apple: '#ef4444', banana: '#facc15', grapes: '#a855f7', cherry: '#ef4444', pineapple: '#eab308', orange: '#f97316', watermelon: '#ef4444' };
+              const colors = { apple: '#ef4444', banana: '#facc15', grapes: '#a855f7', cherry: '#ef4444', pineapple: '#eab308', orange: '#f97316', watermelon: '#ef4444', bomb: '#374151' };
               spawnParticles(fruit.x, fruit.y, colors[fruit.type] || '#fff', 14);
 
               if (sliceSoundRef.current) {
@@ -370,10 +440,52 @@ function HandTracker() {
           ctx.restore();
         });
 
+        if (frameCutsCount > 1) {
+          floatingTextsRef.current.push({
+            x: lastCutX, y: lastCutY - 15, text: `+${frameCutsCount} COMBO!`, color: '#fbbf24', scale: 1.2, alpha: 1.0
+          });
+        }
+
         slicesRef.current.forEach((slice) => {
           slice.velocityY += slice.gravity;
           slice.x += slice.velocityX; slice.y += slice.velocityY;
           slice.rot += slice.vRot;
+
+          if (!slice.type.startsWith('chunk_') && slice.type !== 'single_grape' && !slice.secondarySliced) {
+            trailRef.current.forEach((point) => {
+              const dx = point.x - slice.x; const dy = point.y - slice.y;
+              if (Math.sqrt(dx * dx + dy * dy) < slice.radius * 0.75) {
+                slice.secondarySliced = true;
+                scoreRef.current += 1;
+
+                const outX = Math.cos(sliceAngle + Math.PI / 2) * 3;
+                const outY = Math.sin(sliceAngle + Math.PI / 2) * 3;
+
+                floatingTextsRef.current.push({
+                  x: slice.x, y: slice.y - 10, text: 'DOUBLE CUT!', color: '#00e5ff', scale: 0.9, alpha: 1.0
+                });
+
+                slicesRef.current.push({
+                  x: slice.x, y: slice.y, radius: slice.radius * 0.9, type: 'chunk_' + slice.type, side: 'left',
+                  velocityX: slice.velocityX - outX, velocityY: slice.velocityY - outY,
+                  gravity: 0.38, rot: sliceAngle, vRot: rand(-0.15, 0.15)
+                });
+                slicesRef.current.push({
+                  x: slice.x, y: slice.y, radius: slice.radius * 0.9, type: 'chunk_' + slice.type, side: 'right',
+                  velocityX: slice.velocityX + outX, velocityY: slice.velocityY + outY,
+                  gravity: 0.38, rot: sliceAngle, vRot: rand(-0.15, 0.15)
+                });
+
+                const baseKey = slice.type.includes('_') ? slice.type.split('_')[1] : slice.type;
+                const chunkColors = { apple: '#dc2626', banana: '#eab308', grapes: '#6b21a8', cherry: '#ef4444', pineapple: '#ca8a04', orange: '#c2410c', watermelon: '#ef4444' };
+                spawnParticles(slice.x, slice.y, chunkColors[baseKey] || '#fff', 6);
+
+                if (sliceSoundRef.current) {
+                  sliceSoundRef.current.currentTime = 0; sliceSoundRef.current.play().catch(() => {});
+                }
+              }
+            });
+          }
 
           ctx.save();
           ctx.translate(slice.x, slice.y);
@@ -382,19 +494,48 @@ function HandTracker() {
           ctx.restore();
         });
 
+        floatingTextsRef.current.forEach((t) => {
+          t.y -= 1.4; 
+          ctx.save();
+          ctx.globalAlpha = t.alpha;
+          ctx.font = `bold ${Math.floor(22 * t.scale)}px Arial`;
+          ctx.fillStyle = t.text.includes('COMBO') ? '#fbbf24' : t.color;
+          ctx.shadowBlur = 6; ctx.shadowColor = ctx.fillStyle;
+          ctx.fillText(t.text, t.x, t.y);
+          ctx.restore();
+          t.alpha -= 0.03; 
+        });
+        floatingTextsRef.current = floatingTextsRef.current.filter(t => t.alpha > 0);
+
         particlesRef.current.forEach((p) => {
           p.vy += 0.16; p.x += p.vx; p.y += p.vy; p.life--;
           ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.2, p.size * (p.life / 45)), 0, Math.PI * 2);
           ctx.fillStyle = p.color; ctx.fill();
         });
 
+        if (flashActiveRef.current > 0) {
+          ctx.save();
+          ctx.fillStyle = `rgba(239, 68, 68, ${(flashActiveRef.current / 15) * 0.45})`;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          flashActiveRef.current--;
+        }
+
         particlesRef.current = particlesRef.current.filter(p => p.life > 0);
         fruitsRef.current = fruitsRef.current.filter(f => f.y < canvas.height + 50 && !f.sliced);
-        slicesRef.current = slicesRef.current.filter(s => s.y < canvas.height + 50);
+        slicesRef.current = slicesRef.current.filter(s => s.y < canvas.height + 50 && !s.secondarySliced);
       });
 
       const camera = new window.Camera(videoRef.current, {
-        onFrame: async () => { if (videoRef.current) await hands.send({ image: videoRef.current }); },
+        onFrame: async () => { 
+          if (videoRef.current) {
+            try {
+              await hands.send({ image: videoRef.current }); 
+            } catch (err) {
+              // Gracefully bypass rendering frames until WebAsm finishes asset downloading pipelines
+            }
+          }
+        },
         width: 640, height: 480,
       });
       camera.start();
@@ -418,6 +559,7 @@ function HandTracker() {
   const restartGame = () => {
     scoreRef.current = 0; timeLeftRef.current = 60; gameOverRef.current = false;
     fruitsRef.current = []; slicesRef.current = []; trailRef.current = []; particlesRef.current = [];
+    splattersRef.current = []; floatingTextsRef.current = []; flashActiveRef.current = 0;
   };
 
   return (
